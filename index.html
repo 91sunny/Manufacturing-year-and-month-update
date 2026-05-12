@@ -316,10 +316,7 @@
 </div>
 
 <script>
-const EZADMIN = "https://ga25.ezadmin.co.kr";
 const PROXY = "https://royal-salad-d2a5.sunny-dc0.workers.dev";
-const RSA_N = "80863e5e41076dbff1e46891a0eed30bff4a87528e6841088245585455d5bbcfaa2f16e7f8a46f0e3624deeab2d2e9fbf0f981feb77749a739542712db60708f6f870282259f5fa6d2252e6c00cbc36d95cf94710a0d456641edfd60cfd53e5d6a3ebc5ef943ce8aed0b5f39dc58bba0da677f5dfc97950dded75334714661c5";
-const RSA_E = "010001";
 
 const TEMPLATES = {
   "가격택 잡화(가죽제품) -오중": "10149",
@@ -359,55 +356,19 @@ function calcMfgDate() {
   return `${y}년 ${m + 1}월`;
 }
 
-function addLog(msg, type = '') {
+function addLog(msg, type) {
   const box = document.getElementById('log-box');
   const now = new Date();
   const ts = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
   const row = document.createElement('div');
   row.className = 'log-row' + (type ? ' log-' + type : '');
-  row.innerHTML = `<span class="log-ts">${ts}</span><span class="log-msg">${msg}</span>`;
+  row.innerHTML = '<span class="log-ts">' + ts + '</span><span class="log-msg">' + msg + '</span>';
   box.appendChild(row);
   box.scrollTop = box.scrollHeight;
 }
 
 function setProgress(pct) {
   document.getElementById('prog-fill').style.width = pct + '%';
-}
-
-async function rsaEncrypt(plaintext) {
-  const n = BigInt('0x' + RSA_N);
-  const e = BigInt('0x' + RSA_E);
-  const bytes = new TextEncoder().encode(plaintext);
-  const k = 128;
-  if (bytes.length > k - 11) throw new Error('message too long');
-  const ps = new Uint8Array(k - bytes.length - 3);
-  crypto.getRandomValues(ps);
-  for (let i = 0; i < ps.length; i++) {
-    while (ps[i] === 0) { const r = new Uint8Array(1); crypto.getRandomValues(r); ps[i] = r[0]; }
-  }
-  const em = new Uint8Array([0x00, 0x02, ...ps, 0x00, ...bytes]);
-  let m = 0n;
-  for (const b of em) m = (m << 8n) | BigInt(b);
-  let result = 1n, base = m % n, exp = e;
-  while (exp > 0n) {
-    if (exp & 1n) result = (result * base) % n;
-    base = (base * base) % n;
-    exp >>= 1n;
-  }
-  let hex = result.toString(16);
-  while (hex.length < k * 2) hex = '0' + hex;
-  return hex;
-}
-
-async function callApi(action, data) {
-  const params = new URLSearchParams({ ...data, template: 'S500', action });
-  const resp = await fetch(`${EZADMIN}/function.htm`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString(),
-    credentials: 'include'
-  });
-  return resp.text();
 }
 
 async function runUpdate() {
@@ -430,53 +391,26 @@ async function runUpdate() {
   setProgress(0);
 
   const newDate = calcMfgDate();
-  addLog(`제조연월: ${newDate} 으로 업데이트 시작`);
+  addLog('제조연월: ' + newDate + ' 으로 업데이트 시작');
   setProgress(5);
 
   try {
-    // 로그인 - crdate 획득
     addLog('로그인 중...');
-    const lpResp = await fetch(`${EZADMIN}/login.htm`, { credentials: 'include' });
-    const lpHtml = await lpResp.text();
-    const cdMatch = lpHtml.match(/name="crdate"[^>]+value="([^"]+)"/);
-    const crdate = cdMatch ? cdMatch[1] : new Date().toISOString().split('T')[0];
-
-    // RSA 암호화
-    const formStr = `domain=${domain}&userid=${userid}&passwd=${passwd}&crdate=${crdate}&encpar=`;
-    const encpar = await rsaEncrypt(formStr);
-
-    const loginResp = await fetch(`${EZADMIN}/login_process.php`, {
+    const loginResp = await fetch(PROXY + '/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ domain, userid, passwd, crdate, encpar }),
-      credentials: 'include',
-      redirect: 'follow'
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain, userid, passwd })
     });
+    const loginData = await loginResp.json();
 
-    if (!loginResp.ok) throw new Error('로그인 실패 (서버 오류)');
-
-    // 로그인 성공 확인
-    const loginText = await loginResp.text();
-    if (loginText.includes("alert(") && loginText.includes("잘못된")) {
-      const m = loginText.match(/alert\('([^']+)'\)/);
-      throw new Error('로그인 실패: ' + (m ? m[1] : '아이디/비밀번호 확인'));
+    if (!loginData.ok) {
+      throw new Error('로그인 실패: ' + (loginData.error || '아이디/비밀번호를 확인하세요'));
     }
 
+    const phpsessid = loginData.phpsessid;
     addLog('로그인 성공!', 'ok');
     setProgress(15);
-
-    // 어드민 세션 확립
-    await fetch(`${EZADMIN}/index.htm`, { credentials: 'include' });
-
-    // 세션 확인
-    const testRaw = await callApi('grid_detail', {
-      barcode_template: '10149', _search: 'false', rows: '1', page: '1', sidx: '', sord: 'asc'
-    });
-    if (testRaw.includes('mysqli') || testRaw.includes('로그인')) {
-      throw new Error('세션 오류. 다시 시도해주세요.');
-    }
-
-    addLog('세션 확인 완료 — 양식 업데이트 시작');
+    addLog('양식 업데이트 시작');
     setProgress(20);
 
     const entries = Object.entries(TEMPLATES);
@@ -488,16 +422,23 @@ async function runUpdate() {
       setProgress(20 + Math.round((i + 1) / entries.length * 75));
 
       try {
-        const raw = await callApi('grid_detail', {
-          barcode_template: no, _search: 'false', rows: '100', page: '1', sidx: '', sord: 'asc'
+        const rawResp = await fetch(PROXY + '/api', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phpsessid,
+            action: 'grid_detail',
+            params: { barcode_template: no, _search: 'false', rows: '100', page: '1', sidx: '', sord: 'asc' }
+          })
         });
+        const raw = await rawResp.text();
         if (raw.includes('mysqli')) throw new Error('세션 만료');
 
         const rows = JSON.parse(raw).rows || [];
-        if (!rows.length) { addLog(`[${name}] 항목 없음`, 'err'); fail++; continue; }
+        if (!rows.length) { addLog('[' + name + '] 항목 없음', 'err'); fail++; continue; }
 
         let updated = false;
-        const items = rows.map(row => {
+        const items = rows.map(function(row) {
           const cell = row.cell || {};
           if (typeof cell !== 'object' || Array.isArray(cell)) return null;
           const item = {
@@ -517,27 +458,36 @@ async function runUpdate() {
           return item;
         }).filter(Boolean);
 
-        if (!updated) { addLog(`[${name}] 제조연월 항목 없음`, 'err'); fail++; continue; }
+        if (!updated) { addLog('[' + name + '] 제조연월 항목 없음', 'err'); fail++; continue; }
 
-        await callApi('update_detail_all', { json: JSON.stringify(items) });
-        addLog(`[${name}] → ${newDate}`, 'ok');
+        await fetch(PROXY + '/api', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phpsessid,
+            action: 'update_detail_all',
+            params: { json: JSON.stringify(items) }
+          })
+        });
+
+        addLog('[' + name + '] → ' + newDate, 'ok');
         ok++;
 
-      } catch (e) {
-        addLog(`[${name}] 오류: ${e.message}`, 'err');
+      } catch(e) {
+        addLog('[' + name + '] 오류: ' + e.message, 'err');
         fail++;
       }
 
-      await new Promise(r => setTimeout(r, 80));
+      await new Promise(function(r) { setTimeout(r, 80); });
     }
 
     setProgress(100);
     document.getElementById('r-ok').textContent = ok;
     document.getElementById('r-fail').textContent = fail;
     document.getElementById('result-grid').style.display = 'grid';
-    addLog(`완료 — 성공 ${ok}개 / 실패 ${fail}개`, ok === entries.length ? 'ok' : '');
+    addLog('완료 — 성공 ' + ok + '개 / 실패 ' + fail + '개', ok === entries.length ? 'ok' : '');
 
-  } catch (e) {
+  } catch(e) {
     addLog('오류: ' + e.message, 'err');
   }
 
