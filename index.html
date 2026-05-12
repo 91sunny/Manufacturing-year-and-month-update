@@ -316,7 +316,7 @@
 </div>
 
 <script>
-const EZADMIN = "https://royal-salad-d2a5.sunny-dc0.workers.dev";
+const PROXY = "https://royal-salad-d2a5.sunny-dc0.workers.dev";
 const RSA_N = "80863e5e41076dbff1e46891a0eed30bff4a87528e6841088245585455d5bbcfaa2f16e7f8a46f0e3624deeab2d2e9fbf0f981feb77749a739542712db60708f6f870282259f5fa6d2252e6c00cbc36d95cf94710a0d456641edfd60cfd53e5d6a3ebc5ef943ce8aed0b5f39dc58bba0da677f5dfc97950dded75334714661c5";
 const RSA_E = "010001";
 
@@ -452,21 +452,16 @@ async function runUpdate() {
       redirect: 'follow'
     });
 
-    const loginText = await loginResp.text();
-    let loginJson = null;
-    try { loginJson = JSON.parse(loginText); } catch(e) {}
+    if (!loginResp.ok) throw new Error('로그인 실패 (서버 오류)');
 
-    if (loginJson && loginJson.redirect) {
-      // 302 성공 응답
-      addLog('로그인 성공!', 'ok');
-    } else if (loginText.includes('alert') && (loginText.includes('잘못된') || loginText.includes('오류'))) {
+    // 로그인 성공 확인
+    const loginText = await loginResp.text();
+    if (loginText.includes("alert(") && loginText.includes("잘못된")) {
       const m = loginText.match(/alert\('([^']+)'\)/);
-      throw new Error('로그인 실패: ' + (m ? m[1] : '아이디/비밀번호를 확인하세요'));
-    } else if (!loginResp.ok) {
-      throw new Error('로그인 실패 (서버 오류)');
-    } else {
-      addLog('로그인 성공!', 'ok');
+      throw new Error('로그인 실패: ' + (m ? m[1] : '아이디/비밀번호 확인'));
     }
+
+    addLog('로그인 성공!', 'ok');
     setProgress(15);
 
     // 어드민 세션 확립
