@@ -452,16 +452,21 @@ async function runUpdate() {
       redirect: 'follow'
     });
 
-    if (!loginResp.ok) throw new Error('로그인 실패 (서버 오류)');
-
-    // 로그인 성공 확인
     const loginText = await loginResp.text();
-    if (loginText.includes("alert(") && loginText.includes("잘못된")) {
-      const m = loginText.match(/alert\('([^']+)'\)/);
-      throw new Error('로그인 실패: ' + (m ? m[1] : '아이디/비밀번호 확인'));
-    }
+    let loginJson = null;
+    try { loginJson = JSON.parse(loginText); } catch(e) {}
 
-    addLog('로그인 성공!', 'ok');
+    if (loginJson && loginJson.redirect) {
+      // 302 성공 응답
+      addLog('로그인 성공!', 'ok');
+    } else if (loginText.includes('alert') && (loginText.includes('잘못된') || loginText.includes('오류'))) {
+      const m = loginText.match(/alert\('([^']+)'\)/);
+      throw new Error('로그인 실패: ' + (m ? m[1] : '아이디/비밀번호를 확인하세요'));
+    } else if (!loginResp.ok) {
+      throw new Error('로그인 실패 (서버 오류)');
+    } else {
+      addLog('로그인 성공!', 'ok');
+    }
     setProgress(15);
 
     // 어드민 세션 확립
