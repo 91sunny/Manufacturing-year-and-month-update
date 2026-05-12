@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>제조연월 원클릭 업데이터</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f8f8f6;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.08);
+    --border-md: rgba(0,0,0,0.14);
+    --text: #1a1a18;
+    --text-2: #6b6b67;
+    --text-3: #9e9e99;
+    --green: #2d6a4f;
+    --green-bg: #eaf4ee;
+    --red: #a32d2d;
+    --red-bg: #fdf0f0;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --mono: 'JetBrains Mono', 'Consolas', monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111110;
+      --surface: #1c1c1a;
+      --border: rgba(255,255,255,0.08);
+      --border-md: rgba(255,255,255,0.14);
+      --text: #f0efe9;
+      --text-2: #8f8f8a;
+      --text-3: #5a5a56;
+      --green: #52b788;
+      --green-bg: #0f2a1a;
+      --red: #f87171;
+      --red-bg: #2a0f0f;
+    }
+  }
+
+  body {
+    font-family: 'Noto Sans KR', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2.5rem 1rem 4rem;
+  }
+
+  .container { width: 100%; max-width: 480px; }
+
+  .header { text-align: center; margin-bottom: 2.5rem; }
+
+  .logo-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px; height: 56px;
+    background: var(--surface);
+    border: 0.5px solid var(--border-md);
+    border-radius: 16px;
+    margin-bottom: 1.25rem;
+    font-size: 26px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -.02em;
+    margin-bottom: .5rem;
+  }
+
+  .header p {
+    font-size: 14px;
+    color: var(--text-2);
+    line-height: 1.65;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 10px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-3);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .field { margin-bottom: 11px; }
+  .field:last-child { margin-bottom: 0; }
+
+  .field label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-2);
+    margin-bottom: 5px;
+  }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  input[type=text], input[type=password] {
+    width: 100%;
+    background: var(--bg);
+    border: 0.5px solid var(--border-md);
+    border-radius: var(--radius-sm);
+    padding: 10px 13px;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    font-family: inherit;
+    transition: border-color .15s;
+    -webkit-appearance: none;
+  }
+
+  input[type=text]:focus, input[type=password]:focus {
+    border-color: var(--text);
+  }
+
+  input::placeholder { color: var(--text-3); }
+
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 38px; }
+  .eye-btn {
+    position: absolute; right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--text-3); font-size: 16px; padding: 0;
+    display: flex; align-items: center;
+  }
+  .eye-btn:hover { color: var(--text-2); }
+
+  .run-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--text);
+    color: var(--surface);
+    border: none;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: opacity .15s;
+    margin-bottom: 10px;
+  }
+  .run-btn:hover { opacity: .82; }
+  .run-btn:active { opacity: .7; }
+  .run-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+  .spin { animation: spin .7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .progress-wrap { display: none; margin-bottom: 10px; }
+
+  .prog-track {
+    height: 3px;
+    background: var(--border-md);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .prog-fill {
+    height: 100%;
+    background: var(--text);
+    border-radius: 2px;
+    width: 0;
+    transition: width .35s ease;
+  }
+
+  .log-box {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.9;
+    max-height: 240px;
+    overflow-y: auto;
+    color: var(--text-2);
+  }
+
+  .log-row { display: flex; gap: 10px; }
+  .log-ts { color: var(--text-3); flex-shrink: 0; font-size: 11px; padding-top: 1px; }
+  .log-msg { flex: 1; word-break: break-all; }
+  .log-ok .log-msg { color: var(--green); }
+  .log-err .log-msg { color: var(--red); }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+    display: none;
+  }
+
+  .result-cell {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    text-align: center;
+  }
+
+  .result-num {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .result-num.ok { color: var(--green); }
+  .result-num.ng { color: var(--red); }
+  .result-label { font-size: 12px; color: var(--text-2); }
+
+  .footer-note {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  /* 스크롤바 */
+  .log-box::-webkit-scrollbar { width: 4px; }
+  .log-box::-webkit-scrollbar-track { background: transparent; }
+  .log-box::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 2px; }
+</style>
+<!-- Tabler Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="logo-wrap">🏷️</div>
+    <h1>제조연월 원클릭 업데이터</h1>
+    <p>로그인 후 버튼 하나로<br>모든 바코드 양식의 제조연월이 자동 변경됩니다</p>
+  </div>
+
+  <div class="card">
+    <div class="section-label">
+      <i class="ti ti-lock" style="font-size:13px"></i> 어드민 로그인
+    </div>
+    <div class="field">
+      <label>도메인</label>
+      <input type="text" id="domain" placeholder="예: dammom" autocomplete="off" />
+    </div>
+    <div class="row2">
+      <div class="field" style="margin:0">
+        <label>아이디</label>
+        <input type="text" id="userid" placeholder="아이디" autocomplete="off" />
+      </div>
+      <div class="field" style="margin:0">
+        <label>비밀번호</label>
+        <div class="pw-wrap">
+          <input type="password" id="passwd" placeholder="비밀번호" autocomplete="current-password" />
+          <button class="eye-btn" onclick="togglePw()" aria-label="비밀번호 표시/숨기기">
+            <i class="ti ti-eye" id="eye-icon"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="run-btn" id="run-btn" onclick="runUpdate()">
+    <i class="ti ti-player-play" id="run-icon"></i>
+    <span id="run-text">지금 바로 실행</span>
+  </button>
+
+  <div class="result-grid" id="result-grid">
+    <div class="result-cell">
+      <div class="result-num ok" id="r-ok">0</div>
+      <div class="result-label">성공</div>
+    </div>
+    <div class="result-cell">
+      <div class="result-num ng" id="r-fail">0</div>
+      <div class="result-label">실패</div>
+    </div>
+  </div>
+
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+    <div class="log-box" id="log-box"></div>
+  </div>
+
+  <p class="footer-note">
+    <i class="ti ti-shield-lock" style="font-size:13px"></i>
+    비밀번호는 RSA 암호화 후 전송됩니다
+  </p>
+
+</div>
+
+<script>
+const EZADMIN = "https://ga25.ezadmin.co.kr";
+const RSA_N = "80863e5e41076dbff1e46891a0eed30bff4a87528e6841088245585455d5bbcfaa2f16e7f8a46f0e3624deeab2d2e9fbf0f981feb77749a739542712db60708f6f870282259f5fa6d2252e6c00cbc36d95cf94710a0d456641edfd60cfd53e5d6a3ebc5ef943ce8aed0b5f39dc58bba0da677f5dfc97950dded75334714661c5";
+const RSA_E = "010001";
+
+const TEMPLATES = {
+  "가격택 잡화(가죽제품) -오중": "10149",
+  "가격택 (의류 -가죽제품) -오중": "10147",
+  "가격택 슈즈 (가죽제품)": "10087",
+  "가격택 슈즈 (가죽제품) -오중": "10144",
+  "가격택 슈즈 (면,폴리) -오중": "10145",
+  "가격택 슈즈 (폴리,면)": "10088",
+  "가격택 슈즈 (폴리,면) 혼용률 3줄": "10135",
+  "가격택 잡화 (3줄)": "10100",
+  "가격택 잡화 (가죽제품)": "10090",
+  "가격택 잡화 -오중": "10148",
+  "가격택 텐트": "10092",
+  "케어라벨 (가죽제품)": "10096",
+  "케어라벨 (니콜_대한민국)": "10104",
+  "케어라벨 (니콜_중국)": "10124",
+  "케어라벨 (잡화)": "10095"
+};
+
+function togglePw() {
+  const inp = document.getElementById('passwd');
+  const ico = document.getElementById('eye-icon');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  ico.className = inp.type === 'password' ? 'ti ti-eye' : 'ti ti-eye-off';
+}
+
+function calcMfgDate() {
+  const d = new Date();
+  const y = d.getFullYear(), m = d.getMonth();
+  const firstDay = new Date(y, m, 1).getDay();
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  const totalWeeks = Math.ceil((lastDay + firstDay) / 7);
+  const curWeek = Math.ceil((d.getDate() + firstDay) / 7);
+  if (curWeek >= totalWeeks) {
+    return m >= 11 ? `${y + 1}년 1월` : `${y}년 ${m + 2}월`;
+  }
+  return `${y}년 ${m + 1}월`;
+}
+
+function addLog(msg, type = '') {
+  const box = document.getElementById('log-box');
+  const now = new Date();
+  const ts = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+  const row = document.createElement('div');
+  row.className = 'log-row' + (type ? ' log-' + type : '');
+  row.innerHTML = `<span class="log-ts">${ts}</span><span class="log-msg">${msg}</span>`;
+  box.appendChild(row);
+  box.scrollTop = box.scrollHeight;
+}
+
+function setProgress(pct) {
+  document.getElementById('prog-fill').style.width = pct + '%';
+}
+
+async function rsaEncrypt(plaintext) {
+  const n = BigInt('0x' + RSA_N);
+  const e = BigInt('0x' + RSA_E);
+  const bytes = new TextEncoder().encode(plaintext);
+  const k = 128;
+  if (bytes.length > k - 11) throw new Error('message too long');
+  const ps = new Uint8Array(k - bytes.length - 3);
+  crypto.getRandomValues(ps);
+  for (let i = 0; i < ps.length; i++) {
+    while (ps[i] === 0) { const r = new Uint8Array(1); crypto.getRandomValues(r); ps[i] = r[0]; }
+  }
+  const em = new Uint8Array([0x00, 0x02, ...ps, 0x00, ...bytes]);
+  let m = 0n;
+  for (const b of em) m = (m << 8n) | BigInt(b);
+  let result = 1n, base = m % n, exp = e;
+  while (exp > 0n) {
+    if (exp & 1n) result = (result * base) % n;
+    base = (base * base) % n;
+    exp >>= 1n;
+  }
+  let hex = result.toString(16);
+  while (hex.length < k * 2) hex = '0' + hex;
+  return hex;
+}
+
+async function callApi(action, data) {
+  const params = new URLSearchParams({ ...data, template: 'S500', action });
+  const resp = await fetch(`${EZADMIN}/function.htm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+    credentials: 'include'
+  });
+  return resp.text();
+}
+
+async function runUpdate() {
+  const domain = document.getElementById('domain').value.trim();
+  const userid = document.getElementById('userid').value.trim();
+  const passwd = document.getElementById('passwd').value;
+
+  if (!domain || !userid || !passwd) {
+    alert('도메인, 아이디, 비밀번호를 모두 입력해주세요.');
+    return;
+  }
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('run-icon').className = 'ti ti-loader-2 spin';
+  document.getElementById('run-text').textContent = '실행 중...';
+  document.getElementById('log-box').innerHTML = '';
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('result-grid').style.display = 'none';
+  setProgress(0);
+
+  const newDate = calcMfgDate();
+  addLog(`제조연월: ${newDate} 으로 업데이트 시작`);
+  setProgress(5);
+
+  try {
+    // 로그인 - crdate 획득
+    addLog('로그인 중...');
+    const lpResp = await fetch(`${EZADMIN}/login.htm`, { credentials: 'include' });
+    const lpHtml = await lpResp.text();
+    const cdMatch = lpHtml.match(/name="crdate"[^>]+value="([^"]+)"/);
+    const crdate = cdMatch ? cdMatch[1] : new Date().toISOString().split('T')[0];
+
+    // RSA 암호화
+    const formStr = `domain=${domain}&userid=${userid}&passwd=${passwd}&crdate=${crdate}&encpar=`;
+    const encpar = await rsaEncrypt(formStr);
+
+    const loginResp = await fetch(`${EZADMIN}/login_process.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ domain, userid, passwd, crdate, encpar }),
+      credentials: 'include',
+      redirect: 'follow'
+    });
+
+    if (!loginResp.ok) throw new Error('로그인 실패 (서버 오류)');
+
+    // 로그인 성공 확인
+    const loginText = await loginResp.text();
+    if (loginText.includes("alert(") && loginText.includes("잘못된")) {
+      const m = loginText.match(/alert\('([^']+)'\)/);
+      throw new Error('로그인 실패: ' + (m ? m[1] : '아이디/비밀번호 확인'));
+    }
+
+    addLog('로그인 성공!', 'ok');
+    setProgress(15);
+
+    // 어드민 세션 확립
+    await fetch(`${EZADMIN}/index.htm`, { credentials: 'include' });
+
+    // 세션 확인
+    const testRaw = await callApi('grid_detail', {
+      barcode_template: '10149', _search: 'false', rows: '1', page: '1', sidx: '', sord: 'asc'
+    });
+    if (testRaw.includes('mysqli') || testRaw.includes('로그인')) {
+      throw new Error('세션 오류. 다시 시도해주세요.');
+    }
+
+    addLog('세션 확인 완료 — 양식 업데이트 시작');
+    setProgress(20);
+
+    const entries = Object.entries(TEMPLATES);
+    let ok = 0, fail = 0;
+    const mfgRe = /^\d{4}년\s*\d{1,2}월$/;
+
+    for (let i = 0; i < entries.length; i++) {
+      const [name, no] = entries[i];
+      setProgress(20 + Math.round((i + 1) / entries.length * 75));
+
+      try {
+        const raw = await callApi('grid_detail', {
+          barcode_template: no, _search: 'false', rows: '100', page: '1', sidx: '', sord: 'asc'
+        });
+        if (raw.includes('mysqli')) throw new Error('세션 만료');
+
+        const rows = JSON.parse(raw).rows || [];
+        if (!rows.length) { addLog(`[${name}] 항목 없음`, 'err'); fail++; continue; }
+
+        let updated = false;
+        const items = rows.map(row => {
+          const cell = row.cell || {};
+          if (typeof cell !== 'object' || Array.isArray(cell)) return null;
+          const item = {
+            template: no,
+            idx: String(cell.idx || ''), type: cell.type || '', name: cell.name || '',
+            value: cell.value || '', etc_value: cell.etc_value || '',
+            pos_x: String(cell.pos_x || ''), pos_y: String(cell.pos_y || ''),
+            width: String(cell.width || ''), height: String(cell.height || ''),
+            font: cell.font || '', font_weight: cell.font_weight || '',
+            font_size: String(cell.font_size || ''), font_color: cell.font_color || '',
+            back_color: cell.back_color || '', align: cell.align || ''
+          };
+          if (item.value === 'etc' && mfgRe.test(item.etc_value.trim())) {
+            item.etc_value = newDate;
+            updated = true;
+          }
+          return item;
+        }).filter(Boolean);
+
+        if (!updated) { addLog(`[${name}] 제조연월 항목 없음`, 'err'); fail++; continue; }
+
+        await callApi('update_detail_all', { json: JSON.stringify(items) });
+        addLog(`[${name}] → ${newDate}`, 'ok');
+        ok++;
+
+      } catch (e) {
+        addLog(`[${name}] 오류: ${e.message}`, 'err');
+        fail++;
+      }
+
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    setProgress(100);
+    document.getElementById('r-ok').textContent = ok;
+    document.getElementById('r-fail').textContent = fail;
+    document.getElementById('result-grid').style.display = 'grid';
+    addLog(`완료 — 성공 ${ok}개 / 실패 ${fail}개`, ok === entries.length ? 'ok' : '');
+
+  } catch (e) {
+    addLog('오류: ' + e.message, 'err');
+  }
+
+  btn.disabled = false;
+  document.getElementById('run-icon').className = 'ti ti-player-play';
+  document.getElementById('run-text').textContent = '다시 실행';
+}
+</script>
+</body>
+</html>
