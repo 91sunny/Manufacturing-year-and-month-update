@@ -346,14 +346,27 @@ function togglePw() {
 function calcMfgDate() {
   const d = new Date();
   const y = d.getFullYear(), m = d.getMonth();
-  const firstDay = new Date(y, m, 1).getDay();
-  const lastDay = new Date(y, m + 1, 0).getDate();
-  const totalWeeks = Math.ceil((lastDay + firstDay) / 7);
-  const curWeek = Math.ceil((d.getDate() + firstDay) / 7);
-  if (curWeek >= totalWeeks) {
-    return m >= 11 ? `${y + 1}년 1월` : `${y}년 ${m + 2}월`;
+
+  // 월요일 기준 주차 계산
+  function getWeekOfMonth(date) {
+    const firstWeekday = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    const firstMon = firstWeekday === 0 ? 1 : (8 - firstWeekday) % 7 + 1;
+    if (date.getDate() < firstMon) return 1;
+    return Math.floor((date.getDate() - firstMon) / 7) + 2;
   }
-  return `${y}년 ${m + 1}월`;
+
+  function getTotalWeeks(year, month) {
+    const lastDate = new Date(year, month + 1, 0);
+    return getWeekOfMonth(lastDate);
+  }
+
+  const curWeek = getWeekOfMonth(d);
+  const totalWeeks = getTotalWeeks(y, m);
+
+  if (curWeek >= totalWeeks) {
+    return m >= 11 ? (y + 1) + "년 1월" : y + "년 " + (m + 2) + "월";
+  }
+  return y + "년 " + (m + 1) + "월";
 }
 
 function addLog(msg, type) {
