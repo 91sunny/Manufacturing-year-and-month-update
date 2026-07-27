@@ -362,15 +362,10 @@ function calcMfgDate() {
     return Math.floor((date.getDate() - firstMon) / 7) + 2;
   }
 
-  function getTotalWeeks(year, month) {
-    const lastDate = new Date(year, month + 1, 0);
-    return getWeekOfMonth(lastDate);
-  }
-
   const curWeek = getWeekOfMonth(d);
-  const totalWeeks = getTotalWeeks(y, m);
 
-  if (curWeek >= totalWeeks) {
+  // 3주차 월요일부터 다음 달로 전환
+  if (curWeek >= 3) {
     return m >= 11 ? (y + 1) + "년 1월" : y + "년 " + (m + 2) + "월";
   }
   return y + "년 " + (m + 1) + "월";
